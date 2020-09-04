@@ -1,0 +1,1 @@
+this project is based on this tutorial: https://dev.to/angad777/setting-up-apollo-graphql-in-next-js-with-server-side-rendering-45l5
