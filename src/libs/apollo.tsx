@@ -3,12 +3,19 @@ import App from 'next/app';
 import Head from 'next/head';
 
 import { ApolloProvider } from '@apollo/react-hooks';
-import createApolloCliente from '../apolloClient';
-import { createContext } from 'vm';
+import createApolloClient from '../apolloClient';
+
 
 let globalApolloClient = null;
 
-export const InitialContext = (ctx) => {
+/**
+ * Installs the Apollo Client on NextPageContext
+ * or NextAppContext. Useful if you want to use apolloClient
+ * inside getStaticProps, getStaticPaths or getServerSideProps
+ * @param {NextPageContext | NextAppContext} ctx
+ */
+
+export const InitOnContext = (ctx) => {
   const inAppContext = Boolean(ctx.ctx);
 
   if (process.env.NODE_ENV === 'development') {
@@ -18,7 +25,7 @@ export const InitialContext = (ctx) => {
     }
   }
 
-  const apolloClient = ctx.apolloClient || initApolloClient(ctx.apolloState || {}, inAppContext : ctx.ctx ? ctx);
+  const apolloClient = ctx.apolloClient || initApolloClient(ctx.apolloState || {}, inAppContext ? ctx.ctx : ctx);
 
   apolloClient.toJSON = () => null;
 
@@ -30,17 +37,33 @@ export const InitialContext = (ctx) => {
   return ctx;
 }
 
-const apolloClient = (initialState, ctx) => {
+/**
+ * Always creates a new apollo client on the server
+ * Creates or reuses apollo client in the browser.
+ * @param  {NormalizedCacheObject} initialState
+ * @param  {NextPageContext} ctx
+ */
+
+const initApolloClient = (initialState, ctx) => {
   if (typeof window === 'undefined') {
-    return createApolloCliente(initialState, ctx);
+    return createApolloClient(initialState, ctx);
   }
 
   if (!globalApolloClient) {
-    globalApolloClient = createApolloCliente(initialState, ctx);
+    globalApolloClient = createApolloClient(initialState, ctx);
   }
 
   return globalApolloClient;
 }
+
+/**
+ * Creates a withApollo HOC
+ * that provides the apolloContext
+ * to a next.js Page or AppTree.
+ * @param  {Object} withApolloOptions
+ * @param  {Boolean} [withApolloOptions.ssr=false]
+ * @returns {(PageComponent: ReactNode) => ReactNode}
+ */
 
 export const withApollo = ({ ssr = false } = {}) => (PageComponent) => {
   const WithApollo = ({ apolloClient, apolloState, ...pageProps }) => {
@@ -68,7 +91,7 @@ export const withApollo = ({ ssr = false } = {}) => (PageComponent) => {
   if (ssr || PageComponent.getInitialProps) {
     WithApollo.getInitialProps = async (ctx) => {
       const inAppContext = Boolean(ctx.ctx);
-      const { apolloClient } = InitialContext(ctx);
+      const { apolloClient } = InitOnContext(ctx);
 
       let pageProps = {};
       if (PageComponent.getInitialProps) {
@@ -106,10 +129,10 @@ export const withApollo = ({ ssr = false } = {}) => (PageComponent) => {
 
     return {
       ...pageProps,
-      apolloState: apolloClient.cache.extrat(),
-      apolloClient: ctx
+      apolloState: apolloClient.cache.extract(),
+      apolloClient: ctx.apolloClient,
     }
-   }
+   };
  }
 
  return WithApollo;
